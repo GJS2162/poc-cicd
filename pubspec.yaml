@@ -1,12 +1,12 @@
 name: poc_cicd
 description: "poc ci cd."
-version: 0.0.15
+version: 0.0.16
 homepage: https://github.com/GJS2162/poc-cicd
 repository: https://github.com/GJS2162/poc-cicd
 
 environment:
   sdk: '>=3.3.2 <4.0.0'
-  flutter: ">=1.17.0"
+  flutter: ">=3.0.0"
 
 dependencies:
   flutter:
@@ -27,10 +27,10 @@ flutter: # The following line ensures that the Material Icons font is
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  assets:
-    - assets/images/
-    - assets/icons/
-    - assets/animation/
+  # assets:
+  #   - assets/images/
+  #   - assets/icons/
+  #   - assets/animation/
   # To add custom fonts to your application, add a fonts section here,
   # like this:
 
