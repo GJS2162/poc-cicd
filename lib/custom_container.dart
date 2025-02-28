@@ -20,7 +20,7 @@ class CustomContainer extends StatelessWidget {
       width: width,
       height: height,
       color: color,
-      child: child ?? const Center(child: Text('Custom Container')),
+      child: child ?? const Center(child: Text('CI-CD Custom Container')),
     );
   }
 }
