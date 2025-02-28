@@ -16,14 +16,22 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Install dependencies (yq)
+        run: sudo apt-get update && sudo apt-get install -y yq
+
       - name: Set up Dart
         uses: dart-lang/setup-dart@v1
+
+      - name: Extract Flutter version from pubspec.yaml
+        run: echo "FLUTTER_VERSION=$(yq -r '.environment.flutter' pubspec.yaml | grep -oP '[0-9]+\.[0-9]+\.[0-9]+')" >> $GITHUB_ENV
+
+      - name: Debug Flutter Version
+        run:  "Using Flutter Version: ${{ env.FLUTTER_VERSION }}"
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-            channel: stable
-            flutter-version-file: pubspec.yaml  # Use Flutter version from pubspec.yaml
+          flutter-version: ${{ env.FLUTTER_VERSION }}
 
       - name: Verify Flutter version
         run: flutter --version

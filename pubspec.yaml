@@ -1,11 +1,12 @@
 name: poc_cicd
 description: "poc ci cd."
-version: 0.0.6
+version: 0.0.10
 homepage: https://github.com/GJS2162/poc-cicd
 repository: https://github.com/GJS2162/poc-cicd
 
 environment:
   sdk: '>=3.3.2 <4.0.0'
+  flutter: ">=1.17.0"
 
 dependencies:
   flutter:
