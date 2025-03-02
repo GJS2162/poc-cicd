@@ -1,6 +1,6 @@
 name: poc_cicd
 description: "poc ci cd."
-version: 0.1.1
+version: 0.0.2
 homepage: https://github.com/GJS2162/poc-cicd
 repository: https://github.com/GJS2162/poc-cicd
 
