@@ -21,13 +21,31 @@ jobs:
         with:
           flutter-version: 3.29.0  # Use a specific stable version
 
-
       - name: Verify Flutter version
         run: flutter --version
 
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Extract Version from pubspec.yaml
+        run: |
+          PKG_VERSION=$(yq '.version' pubspec.yaml | tr -d '"')
+          if [[ -z "$PKG_VERSION" || ! "$PKG_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            echo "Error: Invalid or missing version in pubspec.yaml" >&2
+            exit 1
+          fi
+          echo "PKG_VERSION=$PKG_VERSION" >> $GITHUB_ENV
+      
+      - name: Ensure CHANGELOG.md mentions correct version
+        run: |
+          if grep -qE "^## [0-9]+\.[0-9]+\.[0-9]+" CHANGELOG.md; then
+            # Remove old version and add new one
+            sed -i -E "s/^## [0-9]+\.[0-9]+\.[0-9]+/## $PKG_VERSION/" CHANGELOG.md
+          else
+            # Add new version at the top
+            echo -e "## $PKG_VERSION\n\n- Auto-generated release notes.\n\n$(cat CHANGELOG.md)" > CHANGELOG.md
+          fi
+      
       - name: Set up Dart
         uses: dart-lang/setup-dart@v1
 
