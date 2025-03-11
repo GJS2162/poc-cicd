@@ -13,21 +13,28 @@ jobs:
       id-token: write  # Required for OIDC authentication
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout repository with full history
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # Ensure full history is fetched to check tag origin
+          fetch-depth: 0  # Ensure full history is available
 
       - name: Verify tag is from dev branch
         if: startsWith(github.ref, 'refs/tags/')
         run: |
           TAG_COMMIT=$(git rev-list -n 1 ${{ github.ref }}) 
+          echo "🔹 Tag Commit: $TAG_COMMIT"
+          
+          # Ensure we fetch all remote branches
+          git fetch --all --tags
+
+          # Check if the commit is in the 'dev' branch
           DEV_CONTAINS=$(git branch -r --contains $TAG_COMMIT | grep "origin/dev" || true)
           
           if [[ -z "$DEV_CONTAINS" ]]; then
             echo "❌ Tag was not created from the 'dev' branch. Exiting."
             exit 1
           fi
+          
           echo "✅ Tag is from dev branch, proceeding with publishing."
 
       - name: Set up Flutter
