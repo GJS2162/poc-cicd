@@ -8,30 +8,34 @@ on:
       - 'v[0-9]+.[0-9]+.[0-9]+'  # Runs on version tags
 
 jobs:
-  check-current-branch:
+  check-tag-branch:
     runs-on: ubuntu-latest
     outputs:
       branch: ${{ steps.check_step.outputs.branch }}
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # Fetch full history to detect branches
 
-      - name: Get current branch
+      - name: Fetch all branches and tags
+        run: git fetch --all --tags
+
+      - name: Get branch containing the tag
         id: check_step
         run: |
           raw=$(git branch -r --contains ${{ github.ref }})
-          branch="$(echo ${raw//origin\//} | tr -d '\n')"
+          branch=$(echo "${raw//origin\//}" | tr '\n' ' ')
+          echo "branch=$branch" >> $GITHUB_ENV
           echo "branch=$branch" >> $GITHUB_OUTPUT
-          echo "Branches where this tag exists: $branch."
+          echo "Branches where this tag exists: $branch"
 
   publish:
+    runs-on: ubuntu-latest
+    needs: check-tag-branch
+    if: contains(needs.check-tag-branch.outputs.branch, 'dev')  # Runs only if tag is on dev
     permissions:
       id-token: write  # Required for OIDC authentication
-    runs-on: ubuntu-latest
-    needs: check-current-branch
-    if: contains(needs.check-current-branch.outputs.branch, 'dev')  # Runs only if tag exists on 'dev'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -58,17 +62,17 @@ jobs:
             exit 1
           fi
           echo "PKG_VERSION=$PKG_VERSION" >> $GITHUB_ENV
-      
+
       - name: Validate version in CHANGELOG
         run: |
           PUBSPEC_VERSION=$(yq '.version' pubspec.yaml | tr -d '"')
           CHANGELOG_VERSION=$(grep -oP '(?<=^## )\d+\.\d+\.\d+' CHANGELOG.md | head -1)
-      
+
           if [[ "$PUBSPEC_VERSION" != "$CHANGELOG_VERSION" ]]; then
             echo "Error: Version mismatch! pubspec.yaml ($PUBSPEC_VERSION) ≠ CHANGELOG.md ($CHANGELOG_VERSION)"
             exit 1
           fi
-        
+
       - name: Set up Dart
         uses: dart-lang/setup-dart@v1
 
