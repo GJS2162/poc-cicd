@@ -1,54 +1,33 @@
 name: Publish to pub.dev
 
 on:
-  push:
-    branches:
-      - dev  # Runs on dev merge
-    tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'  # Runs on version tags
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Version tag to release (e.g., v1.2.3)"
+        required: true
 
 jobs:
-  check-current-branch:
-    runs-on: ubuntu-latest
-    outputs:
-      branch: ${{ steps.check_step.outputs.branch }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0  # Ensure full Git history
-
-      - name: Fetch all branches and tags
-        run: git fetch --all --tags
-
-      - name: Get current branch for the tag
-        id: check_step
-        run: |
-          TAG_COMMIT=$(git rev-list -n 1 refs/tags/${{ github.ref_name }})
-          if [ -z "$TAG_COMMIT" ]; then
-            echo "Error: Tag commit not found" >&2
-            exit 1
-          fi
-          
-          BRANCHES=$(git branch -r --contains $TAG_COMMIT | sed 's/origin\///g' | tr '\n' ' ')
-          echo "branch=$BRANCHES" >> $GITHUB_ENV
-          echo "branch=$BRANCHES" >> $GITHUB_OUTPUT
-          echo "Branches where this tag exists: $BRANCHES"
-
   publish:
     permissions:
       id-token: write  # Required for OIDC authentication
     runs-on: ubuntu-latest
-    needs: check-current-branch
-    if: contains(needs.check-current-branch.outputs.branch, 'dev')  # ✅ Only run if tag exists in 'dev'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          ref: dev  # Ensure we check out the dev branch
+
+      - name: Ensure the latest dev branch is checked out
+        run: |
+          git fetch origin dev
+          git checkout dev
+          git pull origin dev
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 3.29.0
+          flutter-version: 3.29.0  # Use a specific stable version
 
       - name: Verify Flutter version
         run: flutter --version
@@ -62,7 +41,7 @@ jobs:
       - name: Extract Version from pubspec.yaml
         run: |
           PKG_VERSION=$(yq '.version' pubspec.yaml | tr -d '"')
-          if [[ -z "$PKG_VERSION" || ! "$PKG_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+          if [[ -z "$PKG_VERSION" || ! "$PKG_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "Error: Invalid or missing version in pubspec.yaml" >&2
             exit 1
           fi
@@ -72,10 +51,28 @@ jobs:
         run: |
           PUBSPEC_VERSION=$(yq '.version' pubspec.yaml | tr -d '"')
           CHANGELOG_VERSION=$(grep -oP '(?<=^## )\d+\.\d+\.\d+' CHANGELOG.md | head -1)
+      
           if [[ "$PUBSPEC_VERSION" != "$CHANGELOG_VERSION" ]]; then
             echo "Error: Version mismatch! pubspec.yaml ($PUBSPEC_VERSION) ≠ CHANGELOG.md ($CHANGELOG_VERSION)"
             exit 1
           fi
+
+      - name: Validate provided tag matches package version
+        run: |
+          INPUT_TAG="${{ github.event.inputs.tag }}"
+          EXPECTED_TAG="v$PKG_VERSION"
+
+          if [[ "$INPUT_TAG" != "$EXPECTED_TAG" ]]; then
+            echo "Error: Provided tag ($INPUT_TAG) does not match package version ($EXPECTED_TAG)!"
+            exit 1
+          fi
+
+      - name: Create and push tag from dev branch
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "github-actions@github.com"
+          git tag ${{ github.event.inputs.tag }}
+          git push origin ${{ github.event.inputs.tag }}
 
       - name: Set up Dart
         uses: dart-lang/setup-dart@v1
