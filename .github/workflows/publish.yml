@@ -15,14 +15,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-        with:
-          ref: dev  # Ensure we check out the dev branch
 
-      - name: Ensure the latest dev branch is checked out
+      - name: Fetch all tags and checkout selected tag
         run: |
-          git fetch origin dev
-          git checkout dev
-          git pull origin dev
+          git fetch --tags
+          git checkout ${{ github.event.inputs.tag }}
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -38,14 +35,20 @@ jobs:
       - name: Install yq
         run: sudo apt-get update && sudo apt-get install -y yq
 
-      - name: Extract Version from pubspec.yaml
+      - name: Extract Package Name and Version
         run: |
+          PACKAGE_NAME=$(yq '.name' pubspec.yaml | tr -d '"')
           PKG_VERSION=$(yq '.version' pubspec.yaml | tr -d '"')
-          if [[ -z "$PKG_VERSION" || ! "$PKG_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Error: Invalid or missing version in pubspec.yaml" >&2
+          
+          echo "PACKAGE_NAME=$PACKAGE_NAME" >> $GITHUB_ENV
+          echo "PKG_VERSION=$PKG_VERSION" >> $GITHUB_ENV
+
+      - name: Check if version is already published
+        run: |
+          if curl --silent --fail "https://pub.dev/packages/$PACKAGE_NAME/versions/$PKG_VERSION" >/dev/null; then
+            echo "Error: Version $PKG_VERSION of package $PACKAGE_NAME is already published on pub.dev!"
             exit 1
           fi
-          echo "PKG_VERSION=$PKG_VERSION" >> $GITHUB_ENV
 
       - name: Validate version in CHANGELOG
         run: |
@@ -56,37 +59,6 @@ jobs:
             echo "Error: Version mismatch! pubspec.yaml ($PUBSPEC_VERSION) ≠ CHANGELOG.md ($CHANGELOG_VERSION)"
             exit 1
           fi
-
-      - name: Validate provided tag matches package version
-        run: |
-          INPUT_TAG="${{ github.event.inputs.tag }}"
-          EXPECTED_TAG="v$PKG_VERSION"
-
-          if [[ "$INPUT_TAG" != "$EXPECTED_TAG" ]]; then
-            echo "Error: Provided tag ($INPUT_TAG) does not match package version ($EXPECTED_TAG)!"
-            exit 1
-          fi
-
-      - name: Check if tag already exists
-        run: |
-          git fetch --tags
-          if git rev-parse "refs/tags/${{ github.event.inputs.tag }}" >/dev/null 2>&1; then
-            echo "Error: Tag ${{ github.event.inputs.tag }} already exists!"
-            exit 1
-          fi
-
-      - name: Configure Git Credentials
-        run: |
-          git config --global user.name "GJS2162"
-          git config --global user.email "gaurav2125cse@gmail.com"
-          git remote set-url origin "https://${{ secrets.GH_PAT }}@github.com/GJS2162/poc-cicd.git"
-
-      - name: Create and push tag from dev branch
-        run: |
-          git tag -a ${{ github.event.inputs.tag }} -m "Release ${{ github.event.inputs.tag }}"
-          git push origin --tags
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
 
       - name: Set up Dart
         uses: dart-lang/setup-dart@v1
