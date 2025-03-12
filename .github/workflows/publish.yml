@@ -81,13 +81,13 @@ jobs:
           git config --global user.email "gaurav2125cse@gmail.com"
           git remote set-url origin "https://${{ secrets.GH_PAT }}@github.com/GJS2162/poc-cicd.git"
 
+
       - name: Create and push tag from dev branch
         run: |
           git tag ${{ github.event.inputs.tag }}
           git push origin ${{ github.event.inputs.tag }}
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
-  
 
       - name: Set up Dart
         uses: dart-lang/setup-dart@v1
