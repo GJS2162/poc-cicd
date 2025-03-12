@@ -67,10 +67,22 @@ jobs:
             exit 1
           fi
 
+      - name: Check if tag already exists
+        run: |
+          git fetch --tags
+          if git rev-parse "refs/tags/${{ github.event.inputs.tag }}" >/dev/null 2>&1; then
+            echo "Error: Tag ${{ github.event.inputs.tag }} already exists!"
+            exit 1
+          fi
+
+      - name: Configure Git Credentials
+        run: |
+          git config --global user.name "GJS2162"
+          git config --global user.email "gaurav2125cse@gmail.com"
+          git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/GJS2162/poc-cicd.git
+
       - name: Create and push tag from dev branch
         run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "github-actions@github.com"
           git tag ${{ github.event.inputs.tag }}
           git push origin ${{ github.event.inputs.tag }}
 
