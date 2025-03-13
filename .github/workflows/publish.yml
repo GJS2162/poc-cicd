@@ -22,13 +22,13 @@ jobs:
         run: |
           TAG=${{ github.event.inputs.tag }}
 
-          # Validate the tag format
+          # Validate tag format (vX.Y.Z)
           if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Error: Invalid tag format. Expected format: vX.Y.Z (e.g., v1.2.3)"
+            echo "Error: Invalid tag format. Use vX.Y.Z (e.g., v1.2.3)"
             exit 1
           fi
 
-          # Check if the tag exists
+          # Check if tag exists
           if git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
             echo "Checking out tag: $TAG"
             git checkout "refs/tags/$TAG"
@@ -37,23 +37,15 @@ jobs:
             exit 1
           fi
 
-          # Ensure GitHub Actions recognizes the tag refType
+          # Set environment variables for tag publishing
           echo "GITHUB_REF=refs/tags/$TAG" >> $GITHUB_ENV
           echo "GITHUB_REF_TYPE=tag" >> $GITHUB_ENV
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: 3.29.0  # Use a specific stable version
-
-      - name: Install dependencies
-        run: flutter pub get
 
       - name: Set up Dart
         uses: dart-lang/setup-dart@v1
 
-      - name: Verify Dart setup
-        run: dart --version
+      - name: Install dependencies
+        run: dart pub get
 
       - name: Dry run (test before publishing)
         run: dart pub publish --dry-run
