@@ -1,11 +1,9 @@
 name: Publish to pub.dev
 
 on:
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: "Tag to publish (e.g., v1.2.3)"
-        required: true
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'  # Runs only on version tags
 
 jobs:
   publish:
@@ -15,34 +13,48 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+
+      - name: Confirm checked-out commit
+        run: git log -1  # Show the commit that is checked out
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
         with:
-          fetch-depth: 0  # Fetch all tags
+          flutter-version: 3.29.0  # Use a specific stable version
 
-      - name: Checkout specified tag
+      - name: Verify Flutter version
+        run: flutter --version
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Install yq
+        run: sudo apt-get update && sudo apt-get install -y yq
+
+      - name: Extract Version from pubspec.yaml
         run: |
-          TAG=${{ github.event.inputs.tag }}
-
-          # Validate tag format (vX.Y.Z)
-          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Error: Invalid tag format. Use vX.Y.Z (e.g., v1.2.3)"
+          PKG_VERSION=$(yq '.version' pubspec.yaml | tr -d '"')
+          if [[ -z "$PKG_VERSION" || ! "$PKG_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            echo "Error: Invalid or missing version in pubspec.yaml" >&2
             exit 1
           fi
-
-          # Check if tag exists
-          if git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
-            echo "Checking out tag: $TAG"
-            git checkout "refs/tags/$TAG"
-          else
-            echo "Error: Tag $TAG does not exist!"
+          echo "PKG_VERSION=$PKG_VERSION" >> $GITHUB_ENV
+      
+      - name: Validate version in CHANGELOG
+        run: |
+          PUBSPEC_VERSION=$(yq '.version' pubspec.yaml | tr -d '"')
+          CHANGELOG_VERSION=$(grep -oP '(?<=^## )\d+\.\d+\.\d+' CHANGELOG.md | head -1)
+      
+          if [[ "$PUBSPEC_VERSION" != "$CHANGELOG_VERSION" ]]; then
+            echo "Error: Version mismatch! pubspec.yaml ($PUBSPEC_VERSION) ≠ CHANGELOG.md ($CHANGELOG_VERSION)"
             exit 1
           fi
-
-          # Set environment variables for tag publishing
-          echo "GITHUB_REF=refs/tags/$TAG" >> $GITHUB_ENV
-          echo "GITHUB_REF_TYPE=tag" >> $GITHUB_ENV
-
+        
       - name: Set up Dart
         uses: dart-lang/setup-dart@v1
+
+      - name: Verify Dart setup
+        run: dart --version
 
       - name: Install dependencies
         run: dart pub get
